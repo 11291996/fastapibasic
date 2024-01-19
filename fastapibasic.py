@@ -108,16 +108,18 @@ async def read_file(file_path: str):
 #query parameter -> non path parameters
 fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"}]
 
+#default values
 @app.get("/items/")
 async def read_item(skip: int = 0, limit: int = 10):
     return fake_items_db[skip : skip + limit]
 
 #http://127.0.0.1:8000/items/?skip=0&limit=10 -> use this convention to pass multiple parameters
 #if one of them is or both are not defined, it will use the default value
+#if None is set as default value, it will be not required
 
 #using python annotations
 @app.get("/items/{item_id}")
-async def read_item(item_id: str, q: str | None = None):
+async def read_item(item_id: str, q: str | None = None): 
     if q:
         return {"item_id": item_id, "q": q}
     return {"item_id": item_id}
@@ -230,13 +232,11 @@ async def read_items(q: Annotated[str, Query(min_length=3)]):
     pass
 
 #using ellipsis to make a parameter required
-
 @app.get("/items/")
 async def read_items(q: Annotated[str, Query(..., min_length=3)]):
     pass
 
 #None is allowed but still required
-
 @app.get("/items/")
 async def read_items(q: Annotated[str | None, Query(min_length=3)] = ...):
     pass
@@ -253,7 +253,6 @@ async def read_items(q: Annotated[list[str], Query()] = ["foo", "bar"]):
     pass
 
 #type free list 
-
 @app.get("/items/")
 async def read_items(q: Annotated[list, Query()]):
     pass
@@ -309,6 +308,20 @@ async def read_items(
 #if a parameter with a default value is placed before a parameter without a default value, it will give an error
 #but for fastapi, it is not important
 @app.get("/items/{item_id}")
-async def read_items(q: str, item_id: int = Path(title="The ID of the item to get")):
+#this will give an error if q is not defined with fastapi
+async def read_items(item_id: int = Path(), q: str = Query()):
     pass
-
+#simply using Annotated will solve this problem
+@app.get("/items/{item_id}")
+async def read_items(
+    item_id: Annotated[int, Path(title="The ID of the item to get")], q: str
+):
+    pass
+#trick 
+@app.get("/items/{item_id}")
+#the star will call the arguments in the function as keyword arguments, so the order is not important
+async def read_items(*, item_id: int = Path(title="The ID of the item to get"), q: str):
+    results = {"item_id": item_id}
+    if q:
+        results.update({"q": q})
+    return results
