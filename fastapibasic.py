@@ -104,3 +104,162 @@ async def get_model(model_name: ModelName): #type detection is also possible
 @app.get("/files/{file_path:path}") #this enables the path to contain slashes
 async def read_file(file_path: str): 
     return {"file_path": file_path}
+
+#request body
+#one can send json, form data, files, etc. to the server through request body
+#to declare a request body, use pydantic models
+#the browser will normally send the data to the api 
+#but one can test the api with swagger ui or curl
+from pydantic import BaseModel
+
+#similar logic with query parameters with default values
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+
+@app.post("/items/")
+async def create_item(item: Item):
+    return item
+
+#application of request body
+#editor support is possible like mentioned above
+@app.post("/items/")
+async def create_item(item: Item):
+    item_dict = item
+    if item.tax:
+        price_with_tax = item.price + item.tax
+        item_dict.update({"price_with_tax": price_with_tax})
+    return item_dict
+
+#request body + path parameter
+
+@app.put("/items/{item_id}") #put is used for updating
+async def update_item(item_id: int, item: Item):
+    return {"item_id": item_id, **item}
+
+#request body + path parameter + query parameter
+
+@app.put("/items/{item_id}")
+async def update_item(item_id: int, item: Item, q: str | None = None):
+    result = {"item_id": item_id, **item_id}
+    if q:
+        result.update({"q": q})
+    return result
+
+#query parameter and string validation
+from typing import Annotated
+from fastapi import Query
+
+@app.get("/items/")
+#use Query and Annotated to validate query parameter
+async def read_items(q: Annotated[str | None, Query(max_length=50)] = None): 
+    results = {"items": [{"item_id": "Foo"}, {"item_id": "Bar"}]}
+    if q:
+        results.update({"q": q})
+    return results
+
+@app.get("/items/")
+async def read_items(
+    q: Annotated[str | None, Query(min_length=3, max_length=50)] = None #min_length is also possible
+):
+    pass
+
+@app.get("/items/")
+#adding regular expression as a validation
+async def read_items(
+    q: Annotated[
+        str | None, Query(min_length=3, max_length=50, pattern="^fixedquery$")
+    ] = None,
+):
+    pass 
+
+#default values with validation
+@app.get("/items/")
+async def read_items(q: Annotated[str, Query(min_length=3)]):
+    pass
+
+#using ellipsis to make a parameter required
+
+@app.get("/items/")
+async def read_items(q: Annotated[str, Query(..., min_length=3)]):
+    pass
+
+#None is allowed but still required
+
+@app.get("/items/")
+async def read_items(q: Annotated[str | None, Query(min_length=3)] = ...):
+    pass
+
+#multiple values and query parameter list
+#checking with docs is recommended
+@app.get("/items/")
+async def read_items(q: Annotated[list[str] | None, Query()] = None):
+    pass
+
+#with default values
+@app.get("/items/")
+async def read_items(q: Annotated[list[str], Query()] = ["foo", "bar"]):
+    pass
+
+#type free list 
+
+@app.get("/items/")
+async def read_items(q: Annotated[list, Query()]):
+    pass
+
+#meta data can be added like this
+@app.get("/items/")
+async def read_items(
+    q: Annotated[str | None, Query(title="Query string", min_length=3)] = None
+):
+    pass
+#also description is possible
+@app.get("/items/")
+async def read_items(
+    q: Annotated[
+        str | None,
+        Query(
+            title="Query string",
+            description="Query string for the items to search in the database that have a good match",
+            min_length=3,
+        ),
+    ] = None,
+):
+    pass
+
+#alias query parameter
+@app.get("/items/")
+async def read_items(q: Annotated[str | None, Query(alias="item-query")] = None):
+    pass
+
+#this will make the query not be in the schema and so not be documented in docs
+@app.get("/items/")
+async def read_items(
+    hidden_query: Annotated[str | None, Query(include_in_schema=False)] = None
+):
+    pass
+
+#path parameter and number validation
+
+from fastapi import Path #use Path to validate path parameter
+
+#Path checks item_id's type is path
+@app.get("/items/{item_id}")
+async def read_items(
+    item_id: Annotated[int, Path(title="The ID of the item to get")], #adding meta data
+    q: Annotated[str | None, Query(alias="item-query")] = None,
+):
+    results = {"item_id": item_id}
+    if q:
+        results.update({"q": q})
+    return results
+
+#order of parameters in python function is important
+#if a parameter with a default value is placed before a parameter without a default value, it will give an error
+#but for fastapi, it is not important
+@app.get("/items/{item_id}")
+async def read_items(q: str, item_id: int = Path(title="The ID of the item to get")):
+    pass
+
