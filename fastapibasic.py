@@ -188,13 +188,13 @@ async def create_item(item: Item):
 
 @app.put("/items/{item_id}") #put is used for updating
 async def update_item(item_id: int, item: Item):
-    return {"item_id": item_id, **item}
+    return {"item_id": item_id, "item": item.name}
 
 #request body + path parameter + query parameter
 
 @app.put("/items/{item_id}")
 async def update_item(item_id: int, item: Item, q: str | None = None):
-    result = {"item_id": item_id, **item_id}
+    result = {"item_id": item_id, "item": item.name}
     if q:
         result.update({"q": q})
     return result
@@ -325,3 +325,70 @@ async def read_items(*, item_id: int = Path(title="The ID of the item to get"), 
     if q:
         results.update({"q": q})
     return results
+
+#numeric validation
+@app.get("/items/{item_id}")
+#greater or equal to 1
+async def read_items(
+    item_id: Annotated[int, Path(title="The ID of the item to get", ge=1)], q: str
+):
+    pass
+#greater than 0 or less than 100
+@app.get("/items/{item_id}")
+async def read_items(
+    item_id: Annotated[int, Path(title="The ID of the item to get", gt=0, lt=100)],
+    q: str,
+):
+    pass
+#using float
+@app.get("/items/{item_id}")
+async def read_items(
+    *,
+    item_id: Annotated[int, Path(title="The ID of the item to get", ge=0, le=1000)],
+    q: str,
+    size: Annotated[float, Query(gt=0, lt=10.5)],
+):
+    pass
+
+#multiple path, query and body parameters
+from typing import Union
+
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: Annotated[int, Path(title="The ID of the item to get", ge=0, le=1000)],
+    q: Union[str, None] = None,
+    item: Union[Item, None] = None,
+):
+    pass
+
+#multiple body parameters
+
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+
+class User(BaseModel):
+    username: str
+    full_name: Union[str, None] = None
+
+@app.put("/items/{item_id}")
+async def update_item(item_id: int, item: Item, user: User):
+    results = {"item_id": item_id, "item": item, "user": user}
+    return results
+
+#singular value body
+from fastapi import Body
+
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: int, item: Item, user: User, importance: Annotated[int, Body()]):
+    pass
+
+#embedding the only body parameter
+@app.put("/items/{item_id}")
+#now put function will require a body that specifies the name of the base model
+#embedding is automatically done when there are multiple body parameters
+async def update_item(item_id: int, item: Annotated[Item, Body(embed=True)]):
+    pass
