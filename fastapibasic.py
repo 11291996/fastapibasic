@@ -1,5 +1,5 @@
 #very pythonic program
-#strongly based on pydantic and typing module
+#strongly based on python annotation, pydantic and typing module
 
 from fastapi import FastAPI
 
@@ -392,3 +392,320 @@ async def update_item(
 #embedding is automatically done when there are multiple body parameters
 async def update_item(item_id: int, item: Annotated[Item, Body(embed=True)]):
     pass
+
+#using pydantic to add validation and metedata 
+from pydantic import Field
+
+class Item(BaseModel):
+    name: str
+    #adding metadata and validation
+    description: Union[str, None] = Field(
+        default=None, title="The description of the item", max_length=300
+    )
+    price: float = Field(gt=0, description="The price must be greater than zero")
+    tax: Union[float, None] = None
+
+#generic keys for pydantic models
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+    tags: list = [] #this can be replaced with pydantic's List[str] for better type checking
+    #other generic types are possible 
+
+#nested models
+#keys can be other models
+class Image(BaseModel):
+    url: str
+    name: str
+#nested model
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+    tags: set[str] = set()
+    image: Union[Image, None] = None #a model key
+
+#http type check and more 
+from pydantic import HttpUrl
+
+class Image(BaseModel):
+    url: HttpUrl #this will check if the input is http url 
+    name: str #also many other types are possible. check pydantic docs
+
+#generic submodel 
+    
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+    tags: set[str] = set()
+    images: Union[list[Image], None] = None #a submodel list 
+
+#deeply nested models
+
+class Image(BaseModel):
+    url: HttpUrl
+    name: str
+
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+    tags: set[str] = set()
+    images: Union[list[Image], None] = None
+
+class Offer(BaseModel): #model in model in model
+    name: str
+    description: Union[str, None] = None
+    price: float
+    items: list[Item]
+
+@app.post("/offers/")
+async def create_offer(offer: Offer):
+    return offer
+
+#getting input as a list 
+@app.post("/images/multiple/")
+async def create_multiple_images(images: list[Image]): #editor support is possible
+    return images
+#getting input as a dict
+@app.post("/index-weights/")
+async def create_index_weights(weights: dict[int, float]):
+    return weights
+
+#adding examples to via pydantic model
+
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+
+    model_config = { #this will be shown as an example in the docs
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "name": "Foo",
+                    "description": "A very nice Item",
+                    "price": 35.4,
+                    "tax": 3.2,
+                }
+            ]
+        }
+    }
+
+#using Field to add examples
+class Item(BaseModel):
+    name: str = Field(examples=["Foo"])
+    description: Union[str, None] = Field(default=None, examples=["A very nice Item"])
+    price: float = Field(examples=[35.4])
+    tax: Union[float, None] = Field(default=None, examples=[3.2])
+
+#adding examples via fastapi
+
+@app.put("/items/{item_id}")
+async def update_item(
+    item_id: int,
+    item: Annotated[
+        Item,
+        Body(
+            examples=[
+                {
+                    "name": "Foo",
+                    "description": "A very nice Item",
+                    "price": 35.4,
+                    "tax": 3.2,
+                }
+            ],
+        ),
+    ],
+):
+    pass
+
+#adding multiple examples via fastapi
+@app.put("/items/{item_id}")
+async def update_item(
+    *,
+    item_id: int,
+    item: Annotated[
+        Item,
+        Body(
+            examples=[
+                {
+                    "name": "Foo",
+                    "description": "A very nice Item",
+                    "price": 35.4,
+                    "tax": 3.2,
+                },
+                {
+                    "name": "Bar",
+                    "price": "35.4",
+                },
+                {
+                    "name": "Baz",
+                    "price": "thirty five point four",
+                },
+            ],
+        ),
+    ],
+):
+    pass
+
+#cookie from djangobasic
+from fastapi import Cookie
+
+@app.get("/items/")
+async def read_items(ads_id: Annotated[Union[str, None], Cookie()] = None): #cookie parameter declaration
+    return {"ads_id": ads_id}
+
+#header parameter from dhangobasic
+from fastapi import Header
+
+@app.get("/items/")
+async def read_items(user_agent: Annotated[Union[str, None], Header()] = None):
+    return {"User-Agent": user_agent}
+#http headers use hyphens, but python does not allow hyphens in variable names
+#so autoconversion is done by fastapi
+@app.get("/items/")
+async def read_items(
+    strange_header: Annotated[
+        Union[str, None], Header(convert_underscores=False) #this will disable autoconversion
+    ] = None,
+):
+    return {"strange_header": strange_header}
+#multiple values for a header
+@app.get("/items/")
+async def read_items(x_token: Annotated[Union[list[str], None], Header()] = None):
+    return {"X-Token values": x_token}
+
+#reponsing 
+#use python annotation like above
+@app.post("/items/")
+async def create_item(item: Item) -> Item:
+    return item
+
+@app.get("/items/")
+async def read_items() -> list[Item]: #this will validate the response
+    #also schema will be generated for docs
+    return [
+        Item(name="Portal Gun", price=42.0),
+        Item(name="Plumbus", price=32.0),
+    ]
+
+#if one wants to use basic python types for ease of use in the function
+#but return pydantic models for documentation and validation
+#use response_model
+from typing import Any
+
+#the function is using python type
+#but will return the pydantic model which supports validation and documentation
+@app.get("/items/", response_model=list[Item])
+async def read_items() -> Any:
+    return [
+        {"name": "Portal Gun", "price": 42.0},
+        {"name": "Plumbus", "price": 32.0},
+    ]
+
+#using response_model for security
+from pydantic import EmailStr
+
+class UserIn(BaseModel):
+    username: str
+    password: str
+    email: EmailStr
+    full_name: str | None = None
+
+#this may send the user's password when the model is used for other paths
+@app.post("/user/")
+async def create_user(user: UserIn) -> UserIn:
+    return user
+
+class UserOut(BaseModel):
+    username: str
+    email: EmailStr
+    full_name: str | None = None
+
+#so use response_model to prevent this
+@app.post("/user/", response_model=UserOut) #autoconversion is done by pydantic
+async def create_user(user: UserIn) -> Any:
+    return user
+
+#using inheritance to solve the problem above
+class BaseUser(BaseModel):
+    username: str
+    email: EmailStr
+    full_name: str | None = None
+
+class UserIn(BaseUser):
+    password: str
+
+
+@app.post("/user/")
+async def create_user(user: UserIn) -> BaseUser:
+    return user #this will also enable editor support ulike response_model above
+
+#other return types
+from fastapi import Response
+#these are subclasses of Response, so the method above is being used
+from fastapi.responses import JSONResponse, RedirectResponse
+
+@app.get("/portal")
+async def get_portal(teleport: bool = False) -> Response:
+    if teleport:
+        return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    return JSONResponse(content={"message": "Here's your interdimensional portal."})
+
+#response class cannot be used with nonresponse class unless something is done
+#this will give an error
+@app.get("/portal")
+async def get_portal(teleport: bool = False) -> Response | dict:
+    if teleport:
+        return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    return {"message": "Here's your interdimensional portal."}
+#response model should be set to None then there is no error
+@app.get("/portal", response_model=None)
+async def get_portal(teleport: bool = False) -> Response | dict:
+    if teleport:
+        return RedirectResponse(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    return {"message": "Here's your interdimensional portal."}
+#assume that a function has a default response model, but one wants to return a response independent from the default
+#but allow pydantic to validate the response and document it automatically
+#use this argument
+
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: float = 10.5
+    tags: list[str] = []
+
+
+items = {
+    "foo": {"name": "Foo", "price": 50.2},
+    "bar": {"name": "Bar", "description": "The bartenders", "price": 62, "tax": 20.2},
+    "baz": {"name": "Baz", "description": None, "price": 50.2, "tax": 10.5, "tags": []},
+}
+
+
+@app.get("/items/{item_id}", response_model=Item, response_model_exclude_unset=True) #this will exclude the default values
+#if the argument is set to False, the default values will be included by pydantic
+async def read_item(item_id: str):
+    return items[item_id]
+
+#selecting certain keys from the model 
+@app.get(
+    "/items/{item_id}/name",
+    response_model=Item,
+    response_model_include={"name", "description"}, #the model will only include these keys
+)
+async def read_item_name(item_id: str):
+    return items[item_id]
+
+@app.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"}) #this will exclude the tax key
+async def read_item_public_data(item_id: str):
+    return items[item_id]
