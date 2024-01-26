@@ -709,3 +709,85 @@ async def read_item_name(item_id: str):
 @app.get("/items/{item_id}/public", response_model=Item, response_model_exclude={"tax"}) #this will exclude the tax key
 async def read_item_public_data(item_id: str):
     return items[item_id]
+#use pydantic dict to utilize multiple models
+#multiple response models
+class BaseItem(BaseModel):
+    description: str
+    type: str
+
+
+class CarItem(BaseItem):
+    type: str = "car"
+
+
+class PlaneItem(BaseItem):
+    type: str = "plane"
+    size: int
+
+
+items = {
+    "item1": {"description": "All my friends drive a low rider", "type": "car"},
+    "item2": {
+        "description": "Music is my aeroplane, it's my aeroplane",
+        "type": "plane",
+        "size": 5,
+    },
+}
+
+@app.get("/items/{item_id}", response_model=Union[PlaneItem, CarItem])
+async def read_item(item_id: str):
+    return items[item_id]
+
+#getting as a dict is also possible
+from typing import Dict
+
+@app.get("/keyword-weights/", response_model=Dict[str, float])
+async def read_keyword_weights():
+    return {"foo": 2.3, "bar": 3.4}
+
+#status code 
+#http status code in network study 
+@app.post("/items/", status_code=201)
+async def create_item(name: str):
+    return {"name": name}
+
+#checking status code 
+from fastapi import status
+
+@app.post("/items/", status_code=status.HTTP_201_CREATED)
+async def create_item(name: str):
+    return {"name": name}
+
+#form data
+#non json schema data, decoded in html form
+#so, different from query parameters
+from fastapi import Form
+@app.post("/login/")
+async def login(username: Annotated[str, Form()], password: Annotated[str, Form()]):
+    return {"username": username}
+
+#file data 
+from fastapi import File, UploadFile
+#File turns the file into bytes and uploads it to memory
+@app.post("/files/")
+async def create_file(file: Annotated[bytes, File()]):
+    return {"file_size": len(file)}
+#this will upload the file to the memory also but if it is too large, it will be saved to disks
+#also metadata is available 
+#see pythonbasic's file open part and refer docs for more info
+@app.post("/uploadfile/")
+async def create_upload_file(file: UploadFile):
+    return {"filename": file.filename}
+#optional
+@app.post("/files/")
+async def create_file(file: Annotated[Union[bytes, None], File()] = None):
+    pass
+#adding metadata
+@app.post("/files/")
+async def create_file(file: Annotated[bytes, File(description="A file read as bytes")]):
+    pass
+#multiple files
+#uses list
+@app.post("/files/")
+async def create_files(files: Annotated[list[bytes], File()]):
+    return {"file_sizes": [len(file) for file in files]}
