@@ -791,3 +791,90 @@ async def create_file(file: Annotated[bytes, File(description="A file read as by
 @app.post("/files/")
 async def create_files(files: Annotated[list[bytes], File()]):
     return {"file_sizes": [len(file) for file in files]}
+
+#handling errors
+from fastapi import HTTPException
+items = {"foo": "The Foo Wrestlers"}
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: str):
+    if item_id not in items: #with python if statement
+        raise HTTPException(status_code=404, detail="Item not found") #automatically http error handled by fastapi
+    return {"item": items[item_id]} #although this kind will be handled by fastapi without the if statement
+
+#custom error handling
+from fastapi import Request
+
+class UnicornException(Exception):
+    def __init__(self, name: str):
+        self.name = name
+
+@app.exception_handler(UnicornException) #this api will handle the custom exception defined above
+async def unicorn_exception_handler(request: Request, exc: UnicornException):
+    return JSONResponse(
+        status_code=418,
+        content={"message": f"Oops! {exc.name} did something. There goes a rainbow..."},
+    )
+
+@app.get("/unicorns/{name}")
+async def read_unicorn(name: str):
+    if name == "yolo":
+        raise UnicornException(name=name)
+    return {"unicorn_name": name}
+
+#overriding the default exception handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import PlainTextResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+@app.exception_handler(StarletteHTTPException) #fastapi's http exception inherits from starlette's
+async def http_exception_handler(request, exc): #fastapi accepts json response and starlette accepts plain text response
+    return PlainTextResponse(str(exc.detail), status_code=exc.status_code) #but for exception handler, it is safer to change starlette's
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int):
+    if item_id == 3:
+        raise HTTPException(status_code=418, detail="Nope! I don't like 3.") #no json response
+    return {"item_id": item_id}
+
+from fastapi.encoders import jsonable_encoder
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
+    )
+
+class Item(BaseModel):
+    title: str
+    size: int
+
+@app.post("/items/")
+async def create_item(item: Item): #internal call for errors will use the request validation defined above 
+    return item
+
+#using default and custom exception handlers together
+from fastapi.exception_handlers import (
+    http_exception_handler, #this will be used as default exception handler
+    request_validation_exception_handler,
+)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def custom_http_exception_handler(request, exc):
+    print(f"OMG! An HTTP error!: {repr(exc)}")
+    return await http_exception_handler(request, exc)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    print(f"OMG! The client sent invalid data!: {exc}")
+    return await request_validation_exception_handler(request, exc)
+
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int):
+    if item_id == 3:
+        raise HTTPException(status_code=418, detail="Nope! I don't like 3.")
+    return {"item_id": item_id}
