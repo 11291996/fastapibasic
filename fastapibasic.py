@@ -110,7 +110,7 @@ fake_items_db = [{"item_name": "Foo"}, {"item_name": "Bar"}, {"item_name": "Baz"
 
 #default values
 @app.get("/items/")
-async def read_item(skip: int = 0, limit: int = 10):
+async def read_item(skip: int = 0, limit: int = 10): #theses are query parameters
     return fake_items_db[skip : skip + limit]
 
 #http://127.0.0.1:8000/items/?skip=0&limit=10 -> use this convention to pass multiple parameters
@@ -875,3 +875,74 @@ async def read_item(item_id: int):
     if item_id == 3:
         raise HTTPException(status_code=418, detail="Nope! I don't like 3.")
     return {"item_id": item_id}
+
+#tags
+class Item(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    tax: float | None = None
+    tags: set[str] = set()
+#function discription will be shown in the docs
+#dash will be replaced with space and the first letter will be capitalized
+#also api will be grouped by tags
+@app.post("/items/", response_model=Item, tags=["items"])
+async def create_item(item: Item):
+    return item
+
+@app.get("/items/", tags=["items"])
+async def read_items():
+    return [{"name": "Foo", "price": 42}]
+
+@app.get("/users/", tags=["users"])
+async def read_users():
+    return [{"username": "johndoe"}]
+
+#tagging with oop 
+class Tags(Enum):
+    items = "items"
+    users = "users"
+
+@app.get("/items/", tags=[Tags.items])
+async def get_items():
+    return ["Portal gun", "Plumbus"]
+
+@app.get("/users/", tags=[Tags.users])
+async def read_users():
+    return ["Rick", "Morty"]
+
+#adding summary and description
+#this will be shown in the docs
+@app.post(
+    "/items/",
+    response_model=Item,
+    summary="Create an item",
+    description="Create an item with all the information, name, description, price, tax and a set of unique tags",
+)
+async def create_item(item: Item):
+    return item
+
+#use markdown with docstring
+#this will be shown in the docs
+@app.post("/items/", response_model=Item, summary="Create an item")
+async def create_item(item: Item):
+    """
+    Create an item with all the information:
+
+    - **name**: each item must have a name
+    - **description**: a long description
+    - **price**: required
+    - **tax**: if the item doesn't have tax, you can omit this
+    - **tags**: a set of unique tag strings for this item
+    """
+    return item
+
+#response description
+@app.post(
+    "/items/",
+    response_model=Item,
+    summary="Create an item",
+    response_description="The created item" #
+)
+async def create_item(item: Item):
+    pass
