@@ -946,3 +946,8 @@ async def create_item(item: Item):
 )
 async def create_item(item: Item):
     pass
+
+#deprecated a path operation
+@app.get("/elements/", tags=["items"], deprecated=True) #will be deprecated in the docs
+async def read_elements(): #but still works
+    return [{"item_id": "Foo"}]
