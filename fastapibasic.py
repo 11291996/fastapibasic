@@ -837,6 +837,8 @@ async def read_item(item_id: int):
         raise HTTPException(status_code=418, detail="Nope! I don't like 3.") #no json response
     return {"item_id": item_id}
 
+#using json format for error handling
+#this can be used for normal functions
 from fastapi.encoders import jsonable_encoder
 
 @app.exception_handler(RequestValidationError)
