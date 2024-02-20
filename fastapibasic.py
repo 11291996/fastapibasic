@@ -885,6 +885,7 @@ class Item(BaseModel):
     price: float
     tax: float | None = None
     tags: set[str] = set()
+
 #function discription will be shown in the docs
 #dash will be replaced with space and the first letter will be capitalized
 #also api will be grouped by tags
@@ -953,3 +954,38 @@ async def create_item(item: Item):
 @app.get("/elements/", tags=["items"], deprecated=True) #will be deprecated in the docs
 async def read_elements(): #but still works
     return [{"item_id": "Foo"}]
+
+#partial update
+#patch is used for partial update
+@app.patch("/items/{item_id}", response_model=Item)
+async def update_item(item_id: str, item: Item):
+    stored_item_data = items[item_id]
+    stored_item_model = Item(**stored_item_data)
+    update_data = item.model_dump(exclude_unset=True) #this will exclude the default values
+    updated_item = stored_item_model.model_copy(update=update_data) #this will copy the model partially
+    items[item_id] = jsonable_encoder(updated_item) #this will update the item partially
+    return updated_item
+
+#dependency injection
+from fastapi import Depends
+
+#one can use no async function as a dependency
+async def common_parameters(q: str | None = None, skip: int = 0, limit: int = 100):
+    return {"q": q, "skip": skip, "limit": limit}
+
+@app.get("/items/")
+#now the dependency function will get the parameters first 
+#then the path operation function will receive the parameters
+#by this, dependency injection is done
+#also this method can be used for OpenAPI schema
+#and like that, with right dependency, other programs like databases and packages will be compatible
+#dependency can take the role of integrations and plugins as well
+async def read_items(commons: Annotated[dict, Depends(common_parameters)]):
+    return commons
+
+#sharing dependency
+CommonsDep = Annotated[dict, Depends(common_parameters)]
+
+@app.get("/users/")
+async def read_users(commons: CommonsDep):
+    return commons
