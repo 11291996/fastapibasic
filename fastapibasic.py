@@ -563,7 +563,7 @@ from fastapi import Cookie
 async def read_items(ads_id: Annotated[Union[str, None], Cookie()] = None): #cookie parameter declaration
     return {"ads_id": ads_id}
 
-#header parameter from dhangobasic
+#header parameter from djangobasic
 from fastapi import Header
 
 @app.get("/items/")
@@ -989,3 +989,40 @@ CommonsDep = Annotated[dict, Depends(common_parameters)]
 @app.get("/users/")
 async def read_users(commons: CommonsDep):
     return commons
+
+#security
+from fastapi.security import OAuth2PasswordBearer
+#fastapi's module based on a thrid party security library called OAuth2
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+#since OAuth2 module is involved, the docs will show authorization button including username and password
+#normally, OAuth2 will send the information to independent server but fastapi sends it to the tokenUrl above
+#the python code will be like this "response = requests.get(URL,headers={"Authorization":"Bearer token"})"
+#similar to https' request header
+#then the url will send back a token as the reponse that authenticates the user and expires after a certain time
+#frontend will store the token and utilize it for requests that needs authentications
+@app.get("/items/")
+#this dependency will check that the input of the function is from OAuth2 module
+async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
+    return {"token": token}
+#returning user info from the token
+class User(BaseModel):
+    username: str
+    email: str | None = None
+    full_name: str | None = None
+    disabled: bool | None = None
+
+
+def fake_decode_token(token):
+    return User(
+        username=token + "fakedecoded", email="john@example.com", full_name="John Doe"
+    )
+
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    user = fake_decode_token(token)
+    return user
+
+
+@app.get("/users/me")
+async def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):
+    return current_user
