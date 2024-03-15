@@ -969,7 +969,7 @@ async def update_item(item_id: str, item: Item):
 #dependency injection
 from fastapi import Depends
 
-#one can use no async function as a dependency
+#one can use non async function as a dependency
 async def common_parameters(q: str | None = None, skip: int = 0, limit: int = 100):
     return {"q": q, "skip": skip, "limit": limit}
 
@@ -996,12 +996,13 @@ from fastapi.security import OAuth2PasswordBearer
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 #since OAuth2 module is involved, the docs will show authorization button including username and password
 #normally, OAuth2 will send the information to independent server but fastapi sends it to the tokenUrl above
-#the python code will be like this "response = requests.get(URL,headers={"Authorization":"Bearer token"})"
+#the python code will be like this "response = requests.get(URL, headers={"Authorization":"Bearer token"})"
 #similar to https' request header
 #then the url will send back a token as the reponse that authenticates the user and expires after a certain time
-#frontend will store the token and utilize it for requests that needs authentications
+#frontend will store the token and utilize it for requests that need authentications
 @app.get("/items/")
 #this dependency will check that the input of the function is from OAuth2 module
+#this will return authentication error already if the input is not from OAuth2
 async def read_items(token: Annotated[str, Depends(oauth2_scheme)]):
     return {"token": token}
 #returning user info from the token
@@ -1011,18 +1012,72 @@ class User(BaseModel):
     full_name: str | None = None
     disabled: bool | None = None
 
-
 def fake_decode_token(token):
     return User(
         username=token + "fakedecoded", email="john@example.com", full_name="John Doe"
-    )
-
+)
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     user = fake_decode_token(token)
     return user
 
-
 @app.get("/users/me")
 async def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user
+
+#creating a login system
+from fastapi.security import OAuth2PasswordRequestForm
+#user database 
+#in docs, enter the username and password with hashing then it will login
+fake_users_db = {
+    "johndoe": {
+        "username": "johndoe",
+        "full_name": "John Doe",
+        "email": "johndoe@example.com",
+        "hashed_password": "fakehashedsecret",
+        "disabled": False,
+    },
+    "alice": {
+        "username": "alice",
+        "full_name": "Alice Wonderson",
+        "email": "alice@example.com",
+        "hashed_password": "fakehashedsecret2",
+        "disabled": True,
+    },
+}
+#fake hashing
+def fake_hash_password(password: str):
+    return "fakehashed" + password
+
+class UserInDB(User):
+    hashed_password: str
+
+def get_user(db, username: str):
+    if username in db:
+        user_dict = db[username]
+        return UserInDB(**user_dict)
+
+async def get_current_active_user(
+    current_user: Annotated[User, Depends(get_current_user)]
+):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+@app.post("/token")
+#OAuth2PasswordRequestForm will be used for the form data including username and password
+#scope also will be included and used to identify the user's access level
+#user:read, user:write, admin:read, admin:write, etc. are the examples of scope
+#this code enables the login system as OAuth2PasswordBearer is set to this path(/token)
+#If the depedency(OAuth2PasswordRequestForm) passes the function below without error, FastAPI will successfully authenticate the user
+#So there are lines that raises errors if the user is not found or the password is incorrect
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    user_dict = fake_users_db.get(form_data.username)
+    if not user_dict:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+    user = UserInDB(**user_dict)
+    hashed_password = fake_hash_password(form_data.password)
+    if not hashed_password == user.hashed_password:
+        raise HTTPException(status_code=400, detail="Incorrect username or password")
+
+    return {"access_token": user.username, "token_type": "bearer"}
