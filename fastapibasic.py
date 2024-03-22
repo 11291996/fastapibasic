@@ -1223,3 +1223,16 @@ async def read_own_items(
     return [{"item_id": "Foo", "owner": current_user.username}]
 
 #similarly one can store the user data in the database and use it for the login
+
+#middleware -> functions that run before every request and response
+
+import time 
+
+#this middleware adds the process time to the response header
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
