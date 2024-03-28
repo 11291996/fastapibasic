@@ -1236,3 +1236,33 @@ async def add_process_time_header(request: Request, call_next):
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
     return response
+
+#cross origin resource sharing -> when the backend is in different domain from the frontend
+#port difference also applies
+#when one tries to cross origin, the browser will send options request to the backend
+#then the backend will respond with a header that allows the frontend to access the right backend
+#To do this, the backend must have a list of allowed origins
+
+#wildcards "*" -> allows all origins, just like djangobasic
+
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+async def main():
+    return {"message": "Hello World"}
+
