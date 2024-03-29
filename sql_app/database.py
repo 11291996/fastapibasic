@@ -1,6 +1,6 @@
 #sql databases
 #fastapi does not need sql databases but it is compatible with them
-#recall object relational mapping from djangobasic
+#recall object relational mapping(ORM) from djangobasic
 #install SQLAlchemy with command "pip install sqlalchemy" to enable object relational mapping
 
 from sqlalchemy import create_engine

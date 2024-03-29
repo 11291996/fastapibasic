@@ -1,7 +1,7 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from .database import Base
+from database import Base
 
 #some models that will make sql data to python objects
 class User(Base):
