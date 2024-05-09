@@ -583,7 +583,7 @@ async def read_items(
 async def read_items(x_token: Annotated[Union[list[str], None], Header()] = None):
     return {"X-Token values": x_token}
 
-#reponsing 
+#responsing 
 #use python annotation like above
 @app.post("/items/")
 async def create_item(item: Item) -> Item:
