@@ -17,8 +17,11 @@ app.include_router(
     dependencies=[Depends(get_token_header)],
     responses={418: {"description": "I'm a teapot"}},
 )
+#also routers can be included in a router
+#such as router.include_router(users.router)
 
 #a simple root path operation
 @app.get("/")
 async def root():
     return {"message": "Hello Bigger Applications!"}
+

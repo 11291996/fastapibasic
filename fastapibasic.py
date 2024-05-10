@@ -1266,3 +1266,38 @@ app.add_middleware(
 async def main():
     return {"message": "Hello World"}
 
+#background tasks
+#after certain requests, the backend may do some tasks in the background
+#this will not affect the response time where defining operations in the path function will
+from fastapi import BackgroundTasks 
+
+def write_notification(email: str, message=""):
+    with open("log.txt", mode="w") as email_file:
+        content = f"notification for {email}: {message}"
+        email_file.write(content)
+
+@app.post("/send-notification/{email}")
+async def send_notification(email: str, background_tasks: BackgroundTasks):
+    background_tasks.add_task(write_notification, email, message="some notification") #this task will be done in the background
+    return {"message": "Notification sent in the background"}
+
+#adding dependencies to background tasks
+def write_log(message: str):
+    with open("log.txt", mode="a") as log:
+        log.write(message)
+
+def get_query(background_tasks: BackgroundTasks, q: Union[str, None] = None): #using background tasks as a dependency
+    if q:
+        message = f"found query: {q}\n"
+        background_tasks.add_task(write_log, message)
+    return q
+
+@app.post("/send-notification-new/{email}")
+async def send_notification(
+    email: str, background_tasks: BackgroundTasks, q: Annotated[str, Depends(get_query)]
+):
+    message = f"message to {email}\n"
+    background_tasks.add_task(write_log, message)
+    return {"message": "Message sent"}
+
+#these kind of dependencies can set the levels of background tasks
