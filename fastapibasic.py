@@ -1302,4 +1302,9 @@ async def send_notification(
 
 #these kind of dependencies can set the levels of background tasks
 
-#meta data
+#static files
+from fastapi.staticfiles import StaticFiles
+
+#connects the api to whole new application which might use whole new framework other than FastAPI
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
