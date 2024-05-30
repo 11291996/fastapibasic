@@ -1415,3 +1415,18 @@ def test_create_existing_item():
     )
     assert response.status_code == 409
     assert response.json() == {"detail": "Item already exists"}
+
+#run the app within python to debug
+import uvicorn
+
+@app.get("/")
+def root():
+    a = "a"
+    b = "b" + a
+    return {"hello world": b}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+#one can utilize vscode's debugger to debug the app with this
+#other IDEs also have similar features
