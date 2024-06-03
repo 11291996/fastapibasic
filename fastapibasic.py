@@ -1430,3 +1430,15 @@ if __name__ == "__main__":
 
 #one can utilize vscode's debugger to debug the app with this
 #other IDEs also have similar features
+
+#one can also use fastapi manage the api
+#not using uvicorn directly, use "fastapi dev file.py" instead
+#this command will show the users what is going on in the background
+#one can also use "fastapi run file.py" to run the app but the auto reload feature will not be available
+#one can of course deploy fastapi with web development knowledge and applications including docker, nginx, etc.
+#multi processing using gunicorn is also possible
+#install gunicorn with "pip install uvicorn[standard] gunicorn"
+import uvicorn.workers.UvicornWorker
+#importing this will allow port binding and other features
+#then, "gunicorn main:app --workers 4 --worker-class"
+#also one can use uvicorn's features just like mentioned above
